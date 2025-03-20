@@ -1,7 +1,7 @@
 import { Animal } from '../core/Animal';
 import { Environment, EnvironmentConfig } from '../core/Environment';
 import { Resource } from '../core/Resource';
-import { Position, ResourceType, Weather, TerrainType, Traits } from '../core/types';
+import { Position, ResourceType, Weather, TerrainType, Traits, AnimalState } from '../core/types';
 import { Logger } from '../utils/Logger';
 import { Herbivore } from '../core/Herbivore';
 
@@ -256,7 +256,7 @@ export class Simulation {
             animalA.mate(animalB);
             
             // If mating successful, create offspring
-            if (animalA.state === 'MATING' && animalB.state === 'MATING') {
+            if (animalA.state === AnimalState.MATING && animalB.state === AnimalState.MATING) {
               const offspring = animalA.reproduce(animalB);
               this.animals.push(...offspring);
               

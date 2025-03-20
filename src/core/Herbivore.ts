@@ -1,5 +1,5 @@
 import { Animal } from './Animal';
-import { Position, Direction, Traits, ResourceType } from './types';
+import { Position, Direction, Traits, ResourceType, AnimalState } from './types';
 import { mixTraits } from '../utils/helpers';
 import { Environment } from './Environment';
 import { Resource } from './Resource';
@@ -112,7 +112,7 @@ export class Herbivore extends Animal {
     super.update(deltaTime);
     
     // If the animal is idle, decide on a new action
-    if (!this.dead && this.state === 'IDLE') {
+    if (!this.dead && this.state === AnimalState.IDLE) {
       this.decideNextAction();
     }
   }

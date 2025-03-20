@@ -1,7 +1,7 @@
 import { Simulation, SimulationConfig } from '../../src/simulation/Simulation';
 import { Environment } from '../../src/core/Environment';
 import { Herbivore } from '../../src/core/Herbivore';
-import { Weather, TerrainType } from '../../src/core/types';
+import { Weather, TerrainType, AnimalState } from '../../src/core/types';
 
 // Mock dependencies
 jest.mock('../../src/core/Environment');
@@ -43,7 +43,7 @@ describe('Simulation', () => {
       dead: false,
       position: { x: 50, y: 50 },
       energy: 100,
-      state: 'IDLE',
+      state: AnimalState.IDLE,
       stats: { generation: 1, children: 0, foodEaten: 0, distanceTraveled: 0, timeAlive: 0 },
       reproduce: jest.fn().mockReturnValue([]),
       distanceTo: jest.fn().mockReturnValue(5),
@@ -182,8 +182,8 @@ describe('Simulation', () => {
     (animals[1] as any).energy = 60;
     
     // Make mating successful
-    (animals[0] as any).state = 'MATING';
-    (animals[1] as any).state = 'MATING';
+    (animals[0] as any).state = AnimalState.MATING;
+    (animals[1] as any).state = AnimalState.MATING;
     
     // Make reproduction create an offspring
     const mockOffspring = { id: 'offspring' };
@@ -240,37 +240,49 @@ describe('Simulation', () => {
   });
 
   it('should calculate statistics correctly', () => {
-    const simulation = new Simulation(defaultConfig);
+    // Reset mock implementations first
+    (Herbivore as jest.Mock).mockReset();
     
-    // Set up some animals with different generations
-    (Herbivore as jest.Mock).mockImplementationOnce(() => ({
-      id: '1',
+    // Set up mock Environment
+    (Environment as jest.Mock).mockImplementation(() => ({
       update: jest.fn(),
-      dead: false,
-      stats: { generation: 1, children: 0, foodEaten: 0, distanceTraveled: 0, timeAlive: 0 },
-      reproduce: jest.fn(),
-      distanceTo: jest.fn(),
-      mate: jest.fn()
+      getRandomPosition: jest.fn().mockReturnValue({ x: 50, y: 50 }),
+      addResource: jest.fn(),
+      width: defaultConfig.environmentConfig.width,
+      height: defaultConfig.environmentConfig.height,
+      weather: defaultConfig.environmentConfig.initialWeather
     }));
     
-    (Herbivore as jest.Mock).mockImplementationOnce(() => ({
-      id: '2',
-      update: jest.fn(),
-      dead: false,
-      stats: { generation: 3, children: 0, foodEaten: 0, distanceTraveled: 0, timeAlive: 0 },
-      reproduce: jest.fn(),
-      distanceTo: jest.fn(),
-      mate: jest.fn()
-    }));
+    // Create animal mocks that will properly work with instanceof checks
+    const createHerbivore = (id: string, generation: number) => {
+      const herbivore = {
+        id,
+        update: jest.fn(),
+        dead: false,
+        stats: { generation, children: 0, foodEaten: 0, distanceTraveled: 0, timeAlive: 0 },
+        reproduce: jest.fn(),
+        distanceTo: jest.fn(),
+        mate: jest.fn()
+      };
+      
+      // Patch the constructor to return true for instanceof checks
+      Object.setPrototypeOf(herbivore, Herbivore.prototype);
+      
+      return herbivore;
+    };
+    
+    // Mock Herbivore implementation to return our patched mocks
+    (Herbivore as jest.Mock).mockImplementationOnce(() => createHerbivore('1', 1));
+    (Herbivore as jest.Mock).mockImplementationOnce(() => createHerbivore('2', 3));
     
     // Create a new simulation with these mocked animals
-    const simulation = new Simulation({
+    const simulationWithStats = new Simulation({
       ...defaultConfig,
       initialHerbivores: 2
     });
     
     // Get statistics
-    const stats = simulation.getState().statistics;
+    const stats = simulationWithStats.getState().statistics;
     
     // Should have correct counts
     expect(stats.totalAnimals).toBe(2);

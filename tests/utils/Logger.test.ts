@@ -13,6 +13,9 @@ describe('Logger', () => {
     consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    
+    // Reset log level to INFO before each test
+    Logger.setLogLevel(LogLevel.INFO);
   });
 
   afterEach(() => {

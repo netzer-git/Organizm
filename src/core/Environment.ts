@@ -40,7 +40,7 @@ export class Environment {
     // Initialize terrain map
     this.initializeTerrainMap();
     
-    this.logger.info(`Environment created with dimensions ${width}x${height}`);
+    this.logger.info(`Environment created with dimensions ${this.width}x${this.height}`);
   }
 
   /**
@@ -69,7 +69,8 @@ export class Environment {
    * @returns Array of resources
    */
   public getResources(): Resource[] {
-    return this.resources.filter(r => !r.depleted);
+    // Include resources that are not depleted OR have regeneration
+    return this.resources.filter(r => !r.depleted || r.regenerationRate > 0);
   }
 
   /**

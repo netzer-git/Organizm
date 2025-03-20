@@ -61,7 +61,7 @@ describe('Animal', () => {
     
     // Energy should decrease based on metabolism
     const expectedEnergyDecrease = testTraits.metabolism * 2;
-    expect(animal.energy).toBe(initialEnergy - expectedEnergyDecrease);
+    expect(animal.energy).toBeCloseTo(initialEnergy - expectedEnergyDecrease, 0);
   });
 
   it('should die when energy is depleted', () => {

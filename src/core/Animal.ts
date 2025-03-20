@@ -188,8 +188,8 @@ export abstract class Animal {
   /* Implementation of state-specific behaviors */
 
   private performSleeping(deltaTime: number): void {
-    // When sleeping, regain energy at a slower rate than consumption
-    const energyRecoveryRate = 0.7 * this.traits.metabolism;
+    // When sleeping, regain energy at a faster rate than before
+    const energyRecoveryRate = 1.5 * this.traits.metabolism;
     this.gainEnergy(energyRecoveryRate * deltaTime);
   }
 

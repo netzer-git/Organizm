@@ -61,6 +61,10 @@ describe('Herbivore', () => {
     herbivore1.energy = 60;
     herbivore2.energy = 60;
     
+    // Set proper mature age (10% of lifespan)
+    herbivore1.age = testTraits.lifespan * 0.2; // 20% of lifespan
+    herbivore2.age = testTraits.lifespan * 0.2; // 20% of lifespan
+    
     // Attempt to mate
     herbivore1.mate(herbivore2);
     
@@ -72,9 +76,13 @@ describe('Herbivore', () => {
     const herbivore1 = new Herbivore(testPosition, testTraits, mockEnvironment);
     const herbivore2 = new Herbivore(testPosition, testTraits, mockEnvironment);
     
-    // Set insufficient energy
+    // Set sufficient energy for herbivore1 but not for herbivore2
     herbivore1.energy = 60;
     herbivore2.energy = 40; // Below threshold
+    
+    // Set proper mature age
+    herbivore1.age = testTraits.lifespan * 0.2;
+    herbivore2.age = testTraits.lifespan * 0.2;
     
     // Initial state
     const initialState = herbivore1.state;
