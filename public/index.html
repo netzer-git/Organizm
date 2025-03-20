@@ -8,20 +8,85 @@
     body {
       margin: 0;
       padding: 0;
+      background-color: #222;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #eee;
       overflow: hidden;
-      background-color: #333;
-      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
     
-    #stats {
+    #simulation-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    #controls-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      background-color: #333;
+      padding: 10px;
+      border-top: 1px solid #555;
+    }
+    
+    .control-panel {
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 6px;
+      padding: 10px;
+      margin: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    
+    .panel-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid #555;
+      padding-bottom: 5px;
+    }
+    
+    #stats-panel {
       position: absolute;
       top: 10px;
       right: 10px;
-      background-color: rgba(0, 0, 0, 0.5);
-      color: white;
-      padding: 10px;
+      width: 200px;
+    }
+    
+    #species-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 220px;
+    }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    
+    .population-bar {
+      height: 10px;
+      background-color: #666;
+      margin-top: 3px;
       border-radius: 5px;
-      font-size: 14px;
+      overflow: hidden;
+    }
+    
+    .population-value {
+      height: 100%;
+      transition: width 0.5s ease;
+    }
+    
+    .herbivore-bar {
+      background-color: #4CAF50;
+    }
+    
+    .carnivore-bar {
+      background-color: #f44336;
     }
     
     button {
@@ -36,45 +101,358 @@
       margin: 4px 2px;
       cursor: pointer;
       border-radius: 4px;
+      transition: background-color 0.2s;
     }
     
     button:hover {
       background-color: #45a049;
     }
     
+    button.alt {
+      background-color: #2196F3;
+    }
+    
+    button.alt:hover {
+      background-color: #0b7dda;
+    }
+    
+    button.danger {
+      background-color: #f44336;
+    }
+    
+    button.danger:hover {
+      background-color: #da190b;
+    }
+    
     .slider-container {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background-color: rgba(0, 0, 0, 0.5);
-      color: white;
-      padding: 10px;
-      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
     }
     
     .slider-container label {
-      display: block;
-      margin-bottom: 5px;
+      width: 100px;
     }
     
     .slider {
-      width: 200px;
+      flex: 1;
+      margin: 0 10px;
+    }
+    
+    .slider-value {
+      width: 40px;
+      text-align: right;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: #2196F3;
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+    }
+    
+    #charts-panel {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      width: 300px;
+      height: 200px;
+    }
+    
+    .timeline-chart {
+      width: 100%;
+      height: 150px;
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      position: relative;
+    }
+    
+    .chart-label {
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+    
+    #environment-info {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 6px;
+      max-width: 250px;
+    }
+    
+    #selected-entity-info {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 8px;
+      z-index: 100;
+      min-width: 300px;
+    }
+    
+    .trait-bar {
+      height: 8px;
+      margin-top: 2px;
+      background-color: #444;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .trait-value {
+      height: 100%;
+      background-color: #2196F3;
     }
   </style>
 </head>
 <body>
-  <div id="stats">
-    <div>Time: <span id="time">0</span></div>
-    <div>Animals: <span id="animals">0</span></div>
-    <div>Plants: <span id="plants">0</span></div>
-    <div>Generation: <span id="generation">1</span></div>
-    <div>Weather: <span id="weather">Sunny</span></div>
+  <div id="simulation-container">
+    <!-- PixiJS canvas will be injected here -->
+    
+    <!-- Simulation Statistics Panel -->
+    <div id="stats-panel" class="control-panel">
+      <div class="panel-title">Simulation Stats</div>
+      <div class="stat-row">
+        <span>Time:</span>
+        <span id="time">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Weather:</span>
+        <span id="weather">Sunny</span>
+      </div>
+      <div class="stat-row">
+        <span>Total Animals:</span>
+        <span id="animals">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Plants:</span>
+        <span id="plants">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Avg Generation:</span>
+        <span id="generation">1.0</span>
+      </div>
+      <div class="stat-row">
+        <span>Max Generation:</span>
+        <span id="max-generation">1</span>
+      </div>
+    </div>
+    
+    <!-- Species Information Panel -->
+    <div id="species-panel" class="control-panel">
+      <div class="panel-title">Species Population</div>
+      <div class="stat-row">
+        <span>Herbivores:</span>
+        <span id="herbivore-count">0</span>
+      </div>
+      <div class="population-bar">
+        <div class="population-value herbivore-bar" style="width: 0%"></div>
+      </div>
+      <div class="stat-row" style="margin-top: 10px;">
+        <span>Carnivores:</span>
+        <span id="carnivore-count">0</span>
+      </div>
+      <div class="population-bar">
+        <div class="population-value carnivore-bar" style="width: 0%"></div>
+      </div>
+      <div class="stat-row" style="margin-top: 15px;">
+        <span>Herbivore Traits:</span>
+      </div>
+      <div class="stat-row" style="margin: 2px 0;">
+        <span style="font-size: 12px;">Speed:</span>
+        <span id="herbivore-speed" style="font-size: 12px;">0</span>
+      </div>
+      <div class="stat-row" style="margin: 2px 0;">
+        <span style="font-size: 12px;">Perception:</span>
+        <span id="herbivore-perception" style="font-size: 12px;">0</span>
+      </div>
+      <div class="stat-row" style="margin-top: 10px;">
+        <span>Carnivore Traits:</span>
+      </div>
+      <div class="stat-row" style="margin: 2px 0;">
+        <span style="font-size: 12px;">Speed:</span>
+        <span id="carnivore-speed" style="font-size: 12px;">0</span>
+      </div>
+      <div class="stat-row" style="margin: 2px 0;">
+        <span style="font-size: 12px;">Strength:</span>
+        <span id="carnivore-strength" style="font-size: 12px;">0</span>
+      </div>
+    </div>
+    
+    <!-- Population Charts Panel -->
+    <div id="charts-panel" class="control-panel">
+      <div class="panel-title">Population History</div>
+      <div class="chart-label">Herbivores (green) vs Carnivores (red)</div>
+      <div class="timeline-chart" id="population-chart"></div>
+    </div>
+    
+    <!-- Environment Info -->
+    <div id="environment-info">
+      <div class="panel-title">Environment</div>
+      <div class="stat-row">
+        <span>Size:</span>
+        <span id="environment-size">100×100</span>
+      </div>
+      <div class="stat-row">
+        <span>Resources:</span>
+        <span id="resource-count">0</span>
+      </div>
+    </div>
+    
+    <!-- Entity Details (shown when an animal is selected) -->
+    <div id="selected-entity-info" class="control-panel">
+      <div class="panel-title">Animal Details</div>
+      <div class="stat-row">
+        <span>Type:</span>
+        <span id="entity-type">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Age:</span>
+        <span id="entity-age">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Energy:</span>
+        <span id="entity-energy">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Health:</span>
+        <span id="entity-health">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Generation:</span>
+        <span id="entity-generation">-</span>
+      </div>
+      <div class="panel-title" style="margin-top: 10px;">Traits</div>
+      <div class="stat-row">
+        <span>Speed:</span>
+        <span id="entity-speed">-</span>
+      </div>
+      <div class="trait-bar">
+        <div id="entity-speed-bar" class="trait-value" style="width: 0%"></div>
+      </div>
+      <div class="stat-row">
+        <span>Strength:</span>
+        <span id="entity-strength">-</span>
+      </div>
+      <div class="trait-bar">
+        <div id="entity-strength-bar" class="trait-value" style="width: 0%"></div>
+      </div>
+      <div class="stat-row">
+        <span>Perception:</span>
+        <span id="entity-perception">-</span>
+      </div>
+      <div class="trait-bar">
+        <div id="entity-perception-bar" class="trait-value" style="width: 0%"></div>
+      </div>
+      <div class="stat-row">
+        <span>Metabolism:</span>
+        <span id="entity-metabolism">-</span>
+      </div>
+      <div class="trait-bar">
+        <div id="entity-metabolism-bar" class="trait-value" style="width: 0%"></div>
+      </div>
+      <div style="text-align: center; margin-top: 15px;">
+        <button id="close-entity-details">Close</button>
+      </div>
+    </div>
   </div>
   
-  <div class="slider-container">
-    <label for="speed">Simulation Speed:</label>
-    <input type="range" min="0.1" max="5" step="0.1" value="1" class="slider" id="speed">
-    <span id="speed-value">1x</span>
+  <!-- Control Bar -->
+  <div id="controls-container">
+    <div class="control-panel">
+      <div class="panel-title">Simulation Controls</div>
+      <button id="play-pause-btn">Pause</button>
+      <button id="reset-btn" class="danger">Reset</button>
+      <div class="slider-container">
+        <label for="speed">Speed:</label>
+        <input type="range" min="0.1" max="5" step="0.1" value="1" class="slider" id="speed">
+        <span id="speed-value" class="slider-value">1.0x</span>
+      </div>
+    </div>
+    
+    <div class="control-panel">
+      <div class="panel-title">Environment Controls</div>
+      <div class="slider-container">
+        <label for="initial-plants">Plants:</label>
+        <input type="range" min="10" max="100" step="5" value="30" class="slider" id="initial-plants">
+        <span id="plants-value" class="slider-value">30</span>
+      </div>
+      <div class="slider-container">
+        <label for="initial-herbivores">Herbivores:</label>
+        <input type="range" min="5" max="50" step="5" value="10" class="slider" id="initial-herbivores">
+        <span id="herbivores-value" class="slider-value">10</span>
+      </div>
+      <div class="slider-container">
+        <label for="initial-carnivores">Carnivores:</label>
+        <input type="range" min="0" max="20" step="1" value="3" class="slider" id="initial-carnivores">
+        <span id="carnivores-value" class="slider-value">3</span>
+      </div>
+    </div>
+    
+    <div class="control-panel">
+      <div class="panel-title">Display Options</div>
+      <div class="slider-container">
+        <label for="zoom">Zoom:</label>
+        <input type="range" min="0.5" max="2" step="0.1" value="1" class="slider" id="zoom">
+        <span id="zoom-value" class="slider-value">1.0x</span>
+      </div>
+      <div class="stat-row">
+        <span>Show Trails:</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="show-trails">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="stat-row">
+        <span>Show Stats:</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="show-stats" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
   </div>
   
   <script type="module" src="../dist/index.js"></script>

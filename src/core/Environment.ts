@@ -1,6 +1,7 @@
 import { Position, Weather, TerrainType } from './types';
 import { Resource } from './Resource';
 import { Logger } from '../utils/Logger';
+import { Animal } from './Animal';
 
 /**
  * Configuration for the environment
@@ -23,6 +24,7 @@ export class Environment {
   private terrainMap: TerrainType[][] = [];
   private weatherTimer: number = 0;
   private weatherChangeInterval: number;
+  private animals: Animal[] = []; // Keep track of animals
   
   private logger: Logger;
 
@@ -152,6 +154,31 @@ export class Environment {
       x: Math.max(0, Math.min(this.width - 0.001, position.x)),
       y: Math.max(0, Math.min(this.height - 0.001, position.y))
     };
+  }
+
+  /**
+   * Update animal references (should be called by the simulation)
+   * @param animals Current list of animals
+   */
+  public updateAnimals(animals: Animal[]): void {
+    this.animals = animals;
+  }
+
+  /**
+   * Get animals near a specified position within a radius
+   * @param position Center position
+   * @param radius Search radius
+   * @returns Array of animals within the radius
+   */
+  public getAnimalsNear(position: Position, radius: number): Animal[] {
+    return this.animals.filter(animal => {
+      if (animal.dead) return false;
+      
+      const dx = animal.position.x - position.x;
+      const dy = animal.position.y - position.y;
+      const distanceSquared = dx * dx + dy * dy;
+      return distanceSquared <= radius * radius;
+    });
   }
 
   /**

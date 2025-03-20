@@ -4,6 +4,7 @@ import { Resource } from '../core/Resource';
 import { Position, ResourceType, Weather, TerrainType, Traits, AnimalState } from '../core/types';
 import { Logger } from '../utils/Logger';
 import { Herbivore } from '../core/Herbivore';
+import { Carnivore } from '../core/Carnivore';
 
 /**
  * Configuration for simulation initialization
@@ -13,6 +14,7 @@ export interface SimulationConfig {
   initialHerbivores: number;
   initialPlants: number;
   initialWaterSources: number;
+  initialCarnivores: number;
 }
 
 /**
@@ -25,6 +27,18 @@ const DEFAULT_HERBIVORE_TRAITS: Traits = {
   metabolism: 0.5,
   reproductiveUrge: 10,
   lifespan: 100
+};
+
+/**
+ * Default traits for new carnivores
+ */
+const DEFAULT_CARNIVORE_TRAITS: Traits = {
+  speed: 3,
+  strength: 7,
+  perception: 10,
+  metabolism: 0.7,
+  reproductiveUrge: 8,
+  lifespan: 90
 };
 
 /**
@@ -50,6 +64,7 @@ export class Simulation {
     
     // Initialize animals
     this.initializeHerbivores(config.initialHerbivores);
+    this.initializeCarnivores(config.initialCarnivores);
     
     // Initialize plants
     this.initializePlants(config.initialPlants);
@@ -95,10 +110,13 @@ export class Simulation {
     
     // Reinitialize animals and resources
     this.initializeHerbivores(config.initialHerbivores);
+    this.initializeCarnivores(config.initialCarnivores);
     this.initializePlants(config.initialPlants);
     this.initializeWaterSources(config.initialWaterSources);
     
     this.logger.info('Simulation reset');
+    
+    this.start(); // Start the simulation after reset
   }
 
   /**
@@ -113,6 +131,9 @@ export class Simulation {
     
     // Update simulation time
     this.simulationTime += scaledDelta;
+    
+    // Update environment with current animal list for proximity queries
+    this.environment.updateAnimals(this.animals);
     
     // Update environment (weather, terrain effects)
     this.environment.update(scaledDelta);
@@ -134,11 +155,22 @@ export class Simulation {
    * Get the current state of the simulation for rendering
    */
   public getState() {
+    const herbivores = this.animals.filter(a => a instanceof Herbivore && !a.dead).length;
+    const carnivores = this.animals.filter(a => a instanceof Carnivore && !a.dead).length;
+    
     return {
       animals: this.animals,
       environment: this.environment,
       simulationTime: this.simulationTime,
-      statistics: this.getStatistics()
+      isRunning: this.isRunning,
+      statistics: {
+        totalAnimals: this.animals.filter(a => !a.dead).length,
+        herbivoreCount: herbivores,
+        carnivoreCount: carnivores,
+        plantsCount: this.environment.getResources().filter(r => r.type === ResourceType.PLANT).length,
+        averageGeneration: this.calculateAverageGeneration(),
+        highestGeneration: this.calculateHighestGeneration()
+      }
     };
   }
 
@@ -171,6 +203,28 @@ export class Simulation {
     }
     
     this.logger.info(`Created ${count} herbivores`);
+  }
+
+  /**
+   * Initialize carnivore animals in the simulation
+   * @param count Number of carnivores to create
+   */
+  private initializeCarnivores(count: number): void {
+    for (let i = 0; i < count; i++) {
+      // Create carnivore at a random land position
+      const position = this.environment.getRandomPosition(TerrainType.LAND);
+      
+      // Create with default traits
+      const carnivore = new Carnivore(
+        position,
+        { ...DEFAULT_CARNIVORE_TRAITS },
+        this.environment
+      );
+      
+      this.animals.push(carnivore);
+    }
+    
+    this.logger.info(`Created ${count} carnivores`);
   }
 
   /**
@@ -295,28 +349,25 @@ export class Simulation {
   }
 
   /**
-   * Get statistics about the current simulation state
+   * Calculate the average generation of all living animals
+   * @returns Average generation number
    */
-  private getStatistics(): any {
-    const totalAnimals = this.animals.length;
-    const herbivores = this.animals.filter(a => a instanceof Herbivore).length;
+  private calculateAverageGeneration(): number {
+    const livingAnimals = this.animals.filter(a => !a.dead);
+    if (livingAnimals.length === 0) return 1;
     
-    // Calculate average generation
-    const totalGenerations = this.animals.reduce((sum, animal) => sum + animal.stats.generation, 0);
-    const averageGeneration = totalAnimals > 0 ? totalGenerations / totalAnimals : 0;
-    
-    // Get highest generation
-    const highestGeneration = this.animals.reduce(
+    const totalGenerations = livingAnimals.reduce((sum, animal) => sum + animal.stats.generation, 0);
+    return totalGenerations / livingAnimals.length;
+  }
+
+  /**
+   * Find the highest generation number among all animals
+   * @returns Highest generation number
+   */
+  private calculateHighestGeneration(): number {
+    return this.animals.reduce(
       (max, animal) => Math.max(max, animal.stats.generation),
-      0
+      1
     );
-    
-    return {
-      totalAnimals,
-      herbivoreCount: herbivores,
-      averageGeneration,
-      highestGeneration,
-      simulationTime: this.simulationTime
-    };
   }
 }
