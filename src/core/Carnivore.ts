@@ -9,7 +9,6 @@ import { Herbivore } from './Herbivore';
  * A carnivore animal implementation that hunts herbivores
  */
 export class Carnivore extends Animal {
-  private environment: Environment;
   private targetPrey: Animal | null = null;
   private lastHuntTime: number = 0;
   private huntCooldown: number = 10; // Time between hunts
@@ -22,8 +21,7 @@ export class Carnivore extends Animal {
    * @param generation Generation number
    */
   constructor(position: Position, traits: Traits, environment: Environment, generation: number = 1) {
-    super(position, traits, generation);
-    this.environment = environment;
+    super(position, traits, environment, generation);
   }
 
   /**
@@ -77,12 +75,12 @@ export class Carnivore extends Animal {
     for (let i = 0; i < litterSize; i++) {
       // Mix parent traits with potential mutations
       const childTraits: Traits = {
-        speed: mixTraits(this.traits.speed, partner.traits.speed),
-        strength: mixTraits(this.traits.strength, partner.traits.strength),
-        perception: mixTraits(this.traits.perception, partner.traits.perception),
-        metabolism: mixTraits(this.traits.metabolism, partner.traits.metabolism),
-        reproductiveUrge: mixTraits(this.traits.reproductiveUrge, partner.traits.reproductiveUrge),
-        lifespan: mixTraits(this.traits.lifespan, partner.traits.lifespan)
+        speed: this.mixParentTrait('speed', partner as Carnivore),
+        strength: this.mixParentTrait('strength', partner as Carnivore),
+        perception: this.mixParentTrait('perception', partner as Carnivore),
+        metabolism: this.mixParentTrait('metabolism', partner as Carnivore),
+        reproductiveUrge: this.mixParentTrait('reproductiveUrge', partner as Carnivore),
+        lifespan: this.mixParentTrait('lifespan', partner as Carnivore)
       };
       
       // Create child at nearby position
@@ -204,7 +202,7 @@ export class Carnivore extends Animal {
     
     if (attackPower > preyDefense) {
       // Attack succeeded
-      this.eat(ResourceType.MEAT);
+      this.eat(ResourceType.SMALL_ANIMAL);
       
       // Gain energy based on prey's health
       const energyGained = Math.min(prey.health * 0.5, 50);
@@ -238,5 +236,64 @@ export class Carnivore extends Animal {
     
     const randomDirection = directions[Math.floor(Math.random() * directions.length)];
     this.move(randomDirection);
+  }
+  
+  /**
+   * Implementation of the abstract eat method
+   * @param resourceType The type of resource being consumed
+   */
+  public eat(resourceType: number): void {
+    // Carnivores can only eat small animals (meat)
+    if (resourceType === ResourceType.SMALL_ANIMAL) {
+      // Gain a significant amount of energy
+      this.gainEnergy(30);
+      this.stats.foodEaten++;
+    }
+  }
+
+  /**
+   * Mate with another animal if it's a compatible partner
+   * @param partner Potential mate
+   * @returns 
+   */
+  public mate(partner: Animal): void {
+    // Only mate with other carnivores
+    if (!(partner instanceof Carnivore)) {
+      return;
+    }
+    
+    // Check if both animals have enough energy and are ready to mate
+    if (this.energy > 70 && partner.energy > 70) {
+      this.state = AnimalState.MATING;
+      
+      // Reduce energy from mating
+      this.consumeEnergy(20);
+    }
+  }
+
+  /**
+   * Mix a specific trait from both parents with slight mutation
+   * @param traitName Name of the trait to mix
+   * @param partner Partner to mix traits with
+   * @returns Mixed trait value
+   */
+  private mixParentTrait(traitName: keyof Traits, partner: Carnivore): number {
+    const parentA = this.traits[traitName];
+    const parentB = partner.traits[traitName];
+    
+    // Mix traits within range of both parents, with slight mutation
+    const min = Math.min(parentA, parentB);
+    const max = Math.max(parentA, parentB);
+    const range = max - min;
+    
+    // Ensure we don't go below the minimum parent trait value
+    const baseValue = min + range * Math.random();
+    
+    // Apply slight mutation (up to 20% in either direction)
+    const mutationFactor = 0.8 + (Math.random() * 0.4); // Range: 0.8 to 1.2
+    const finalValue = baseValue * mutationFactor;
+    
+    // Ensure we never go below the minimum parent trait
+    return Math.max(min, finalValue);
   }
 }

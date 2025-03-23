@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, TextStyle, InteractionEvent, Point } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle, FederatedPointerEvent, Point } from 'pixi.js';
 import { Animal } from '../core/Animal';
 import { Resource } from '../core/Resource';
 import { Environment } from '../core/Environment';
@@ -20,7 +20,7 @@ export interface RendererOptions {
 export class Renderer {
   private app: Application;
   private worldContainer: Container;
-  private cellSize: number;
+  private cellSize: number = 10; // Default size
   private terrainGraphics: Graphics;
   private resourceGraphics: Graphics;
   private animalGraphics: Graphics;
@@ -62,8 +62,8 @@ export class Renderer {
     this.worldContainer.addChild(this.animalGraphics);
     
     // Make animal graphics interactive
-    this.animalGraphics.interactive = true;
-    this.animalGraphics.buttonMode = true;
+    this.animalGraphics.eventMode = 'static';
+    this.animalGraphics.cursor = 'pointer';
     this.animalGraphics.on('pointerdown', this.handleAnimalClick.bind(this));
     
     // Create UI elements
@@ -151,7 +151,7 @@ export class Renderer {
    * Handle click events on animals
    * @param event The interaction event
    */
-  private handleAnimalClick(event: InteractionEvent): void {
+  private handleAnimalClick(event: FederatedPointerEvent): void {
     const position = event.data.getLocalPosition(this.worldContainer);
     const clickX = position.x / this.cellSize;
     const clickY = position.y / this.cellSize;

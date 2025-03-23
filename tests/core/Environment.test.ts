@@ -1,6 +1,8 @@
 import { Environment, EnvironmentConfig } from '../../src/core/Environment';
-import { Position, Weather, TerrainType, ResourceType } from '../../src/core/types';
+import { Position, Weather, TerrainType, ResourceType, Traits } from '../../src/core/types';
 import { Resource } from '../../src/core/Resource';
+import { Animal } from '../../src/core/Animal';
+import { TestAnimal } from '../core/TestAnimal';
 
 // Helper to create test resources with guaranteed unique IDs
 let resourceCounter = 0;
@@ -252,5 +254,105 @@ describe('Environment', () => {
     // Check that the resource is still there despite being depleted
     const remainingResources = environment.getResources();
     expect(remainingResources.length).toBe(1);
+  });
+});
+
+/**
+ * Test Environment with animal tracking and lookup capabilities
+ */
+describe('Environment - Animal Tracking', () => {
+  let environment: Environment;
+  let animal1: Animal;
+  let animal2: Animal;
+
+  beforeEach(() => {
+    const config: EnvironmentConfig = {
+      width: 100,
+      height: 100,
+      initialWeather: Weather.SUNNY,
+      weatherChangeInterval: 50
+    };
+    
+    environment = new Environment(config);
+    
+    // Create mock animals
+    animal1 = new TestAnimal(
+      { x: 25, y: 25 },
+      { speed: 3, strength: 5, perception: 8, metabolism: 0.5, reproductiveUrge: 5, lifespan: 100 }
+    );
+    
+    animal2 = new TestAnimal(
+      { x: 75, y: 75 },
+      { speed: 4, strength: 6, perception: 9, metabolism: 0.6, reproductiveUrge: 6, lifespan: 110 }
+    );
+  });
+  
+  test('should track animals in the environment', () => {
+    // Update environment with animals
+    environment.updateAnimals([animal1, animal2]);
+    
+    // Verify animals are tracked
+    const animals = (environment as any).animals;
+    expect(animals).toHaveLength(2);
+    expect(animals).toContain(animal1);
+    expect(animals).toContain(animal2);
+  });
+  
+  test('should find animals near a position', () => {
+    // Update environment with animals
+    environment.updateAnimals([animal1, animal2]);
+    
+    // Get animals near animal1's position with a small radius
+    const nearbyAnimals = environment.getAnimalsNear(animal1.position, 10);
+    
+    // Should only find animal1
+    expect(nearbyAnimals).toHaveLength(1);
+    expect(nearbyAnimals[0]).toBe(animal1);
+    
+    // Get animals near animal1's position with a large radius
+    const allAnimals = environment.getAnimalsNear(animal1.position, 100);
+    
+    // Should find both animals
+    expect(allAnimals).toHaveLength(2);
+    expect(allAnimals).toContain(animal1);
+    expect(allAnimals).toContain(animal2);
+  });
+  
+  test('should exclude dead animals from search results', () => {
+    // Kill animal2
+    animal2.die();
+    
+    // Update environment with animals
+    environment.updateAnimals([animal1, animal2]);
+    
+    // Get all animals near a position that should include both
+    const nearbyAnimals = environment.getAnimalsNear({ x: 50, y: 50 }, 50);
+    
+    // Should only find animal1 (not the dead animal2)
+    expect(nearbyAnimals).toHaveLength(1);
+    expect(nearbyAnimals[0]).toBe(animal1);
+  });
+  
+  test('should update tracked animals when updateAnimals is called again', () => {
+    // Update environment with initial animals
+    environment.updateAnimals([animal1, animal2]);
+    
+    // Create a new animal
+    const animal3 = new TestAnimal(
+      { x: 50, y: 50 },
+      { speed: 5, strength: 7, perception: 10, metabolism: 0.7, reproductiveUrge: 7, lifespan: 120 }
+    );
+    
+    // Update environment with a new list
+    environment.updateAnimals([animal2, animal3]);
+    
+    // Get all animals in the environment
+    const allAnimals = environment.getAnimalsNear({ x: 50, y: 50 }, 100);
+    
+    // Should only find animal2 and animal3 (animal1 was removed)
+    expect(allAnimals).toHaveLength(2);
+    expect(allAnimals).toContain(animal2);
+    expect(allAnimals).toContain(animal3);
+    expect(allAnimals).not.toContain(animal1);
   });
 });

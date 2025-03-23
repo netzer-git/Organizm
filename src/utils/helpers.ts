@@ -1,86 +1,103 @@
 /**
- * Generates a unique identifier for entities in the simulation
+ * Generate a unique ID for objects in the simulation
  * @returns A unique string ID
  */
 export function generateUniqueId(): string {
-  // Simple implementation using timestamp and random values
-  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
 }
 
 /**
- * Mixes two trait values with random variation to simulate genetic inheritance
- * @param traitA First parent trait value
- * @param traitB Second parent trait value
- * @param mutationFactor How much mutation to allow (0-1)
- * @returns The resulting trait value
+ * Mix two trait values with optional mutation
+ * @param traitA First parent's trait value
+ * @param traitB Second parent's trait value
+ * @param mutationFactor How much mutation to apply (0 to 1)
+ * @returns Mixed trait value
  */
-export function mixTraits(traitA: number, traitB: number, mutationFactor: number = 0.1): number {
-  // Base mixing is average of parents with random weighting
-  const weight = Math.random();
-  const baseTrait = traitA * weight + traitB * (1 - weight);
+export function mixTraits(
+  traitA: number, 
+  traitB: number, 
+  mutationFactor: number = 0.1
+): number {
+  // Base mixing is weighted average of parents
+  const mixRatio = Math.random();
+  const baseMix = traitA * mixRatio + traitB * (1 - mixRatio);
   
-  // Apply random mutation
-  const mutation = (Math.random() * 2 - 1) * mutationFactor * baseTrait;
+  // Apply mutation
+  const mutationRange = Math.max(traitA, traitB) * mutationFactor;
+  const mutation = (Math.random() * 2 - 1) * mutationRange;
   
-  return Math.max(0, baseTrait + mutation);
+  // Ensure the result is positive
+  return Math.max(0, baseMix + mutation);
 }
 
 /**
- * Clamps a value between a minimum and maximum
+ * Clamp a value between min and max
  * @param value The value to clamp
  * @param min Minimum allowed value
  * @param max Maximum allowed value
- * @returns The clamped value
+ * @returns Clamped value
  */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
 /**
- * Normalizes a value to be between 0 and 1
+ * Normalize a value to the range 0-1
  * @param value The value to normalize
- * @param min Minimum expected input value
- * @param max Maximum expected input value
+ * @param min Minimum value in the range
+ * @param max Maximum value in the range
  * @returns Normalized value between 0 and 1
  */
 export function normalize(value: number, min: number, max: number): number {
-  if (min === max) return 0.5; // Avoid division by zero
+  // Handle edge case
+  if (min === max) return 0.5;
+  
+  // Normalize and clamp
   return clamp((value - min) / (max - min), 0, 1);
 }
 
 /**
- * Returns a random value from an array
- * @param array The array to select from
- * @returns A random item from the array
+ * Choose a random element from an array
+ * @param array The array to choose from
+ * @returns A random element from the array
  */
 export function randomChoice<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
 
 /**
- * Shuffles an array in place
+ * Shuffle an array in-place using Fisher-Yates algorithm
  * @param array The array to shuffle
- * @returns The shuffled array
+ * @returns A new shuffled array
  */
 export function shuffleArray<T>(array: T[]): T[] {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
   }
-  return result;
+  return newArray;
 }
 
 /**
- * Calculates weighted random index based on provided weights
- * @param weights Array of weights (positive numbers)
- * @returns Selected index based on weights
+ * Pick an index based on weighted probabilities
+ * @param weights Array of weights (higher value = higher chance)
+ * @returns Selected index
  */
 export function weightedRandomIndex(weights: number[]): number {
+  // Calculate total weight
   const totalWeight = weights.reduce((sum, weight) => sum + Math.max(0, weight), 0);
-  if (totalWeight <= 0) return Math.floor(Math.random() * weights.length);
   
+  // If all weights are zero or negative, return random index
+  if (totalWeight <= 0) {
+    return Math.floor(Math.random() * weights.length);
+  }
+  
+  // Pick a random value between 0 and total weight
   let randomValue = Math.random() * totalWeight;
+  
+  // Find the index corresponding to the random value
   for (let i = 0; i < weights.length; i++) {
     if (weights[i] > 0) {
       randomValue -= weights[i];

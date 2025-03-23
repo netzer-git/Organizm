@@ -1,5 +1,6 @@
 import { TestAnimal } from './TestAnimal';
 import { Position, Direction, AnimalState, ResourceType, Traits } from '../../src/core/types';
+import { Environment } from '../../src/core/Environment';
 
 describe('Animal', () => {
   // Common test position and traits
@@ -13,13 +14,24 @@ describe('Animal', () => {
     lifespan: 100
   };
 
+  let mockEnvironment: Environment;
+
   beforeEach(() => {
     // Reset any shared state or mocks
     jest.clearAllMocks();
+
+    // Create a mock environment for testing
+    mockEnvironment = {
+      boundPosition: jest.fn(pos => pos),
+      getTerrainAt: jest.fn(),
+      getResourcesNear: jest.fn(() => []),
+      isInBounds: jest.fn(() => true),
+      getAnimalsNear: jest.fn(() => [])
+    } as unknown as Environment;
   });
 
   it('should create an animal with the correct initial properties', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
 
     expect(animal.id).toBeDefined();
     expect(animal.position).toEqual(testPosition);
@@ -38,7 +50,7 @@ describe('Animal', () => {
     const originalPosition = { x: 10, y: 10 };
     const originalTraits = { ...testTraits };
     
-    const animal = new TestAnimal(originalPosition, originalTraits, 1);
+    const animal = new TestAnimal(originalPosition, originalTraits, mockEnvironment);
     
     // Change the animal's position and traits
     animal.position.x = 20;
@@ -50,7 +62,7 @@ describe('Animal', () => {
   });
 
   it('should update age and consume energy based on metabolism', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     const initialEnergy = animal.energy;
     
     // Update for 2 time units
@@ -65,7 +77,7 @@ describe('Animal', () => {
   });
 
   it('should die when energy is depleted', () => {
-    const animal = new TestAnimal(testPosition, { ...testTraits, metabolism: 50 }, 1);
+    const animal = new TestAnimal(testPosition, { ...testTraits, metabolism: 50 }, mockEnvironment);
     
     // High metabolism will quickly deplete energy
     animal.update(3);
@@ -76,7 +88,7 @@ describe('Animal', () => {
   });
 
   it('should die when reaching maximum lifespan', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     // Set age to just below lifespan
     animal.age = testTraits.lifespan - 0.5;
@@ -90,7 +102,7 @@ describe('Animal', () => {
   });
 
   it('should not update if already dead', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     // Kill the animal
     animal.die();
@@ -108,7 +120,7 @@ describe('Animal', () => {
   });
 
   it('should change state to sleeping when sleep method is called', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     animal.sleep(5);
     
@@ -116,7 +128,7 @@ describe('Animal', () => {
   });
 
   it('should recover energy while sleeping', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     // Reduce energy first
     animal.energy = 50;
@@ -132,7 +144,7 @@ describe('Animal', () => {
   });
 
   it('should change state and direction when move method is called', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     animal.move(Direction.NORTH);
     
@@ -141,7 +153,7 @@ describe('Animal', () => {
   });
 
   it('should update position when moving', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     const initialY = animal.position.y;
     
     // Move north
@@ -155,7 +167,7 @@ describe('Animal', () => {
   });
 
   it('should change state when eat method is called', () => {
-    const animal = new TestAnimal(testPosition, testTraits, 1);
+    const animal = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     animal.eat(ResourceType.PLANT);
     
@@ -163,8 +175,8 @@ describe('Animal', () => {
   });
 
   it('should change state when mate method is called with compatible partner', () => {
-    const animal1 = new TestAnimal(testPosition, testTraits, 1);
-    const animal2 = new TestAnimal(testPosition, testTraits, 1);
+    const animal1 = new TestAnimal(testPosition, testTraits, mockEnvironment);
+    const animal2 = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     // Ensure both have enough energy
     animal1.energy = 60;
@@ -176,8 +188,8 @@ describe('Animal', () => {
   });
 
   it('should not change state when mate method is called with incompatible partner', () => {
-    const animal1 = new TestAnimal(testPosition, testTraits, 1);
-    const animal2 = new TestAnimal(testPosition, testTraits, 1);
+    const animal1 = new TestAnimal(testPosition, testTraits, mockEnvironment);
+    const animal2 = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     // Make animal2 incompatible by reducing its energy
     animal1.energy = 60;
@@ -193,8 +205,8 @@ describe('Animal', () => {
   });
 
   it('should create offspring when reproduce method is called', () => {
-    const animal1 = new TestAnimal(testPosition, testTraits, 1);
-    const animal2 = new TestAnimal(testPosition, testTraits, 1);
+    const animal1 = new TestAnimal(testPosition, testTraits, mockEnvironment);
+    const animal2 = new TestAnimal(testPosition, testTraits, mockEnvironment);
     
     const offspring = animal1.reproduce(animal2);
     
@@ -210,7 +222,7 @@ describe('Animal', () => {
   });
 
   it('should calculate distance to a target correctly', () => {
-    const animal = new TestAnimal({ x: 0, y: 0 }, testTraits, 1);
+    const animal = new TestAnimal({ x: 0, y: 0 }, testTraits, mockEnvironment);
     const target = { x: 3, y: 4 }; // Makes a 3-4-5 triangle
     
     const distance = animal.distanceTo(target);
@@ -219,7 +231,7 @@ describe('Animal', () => {
   });
 
   it('should determine the correct direction to a target', () => {
-    const animal = new TestAnimal({ x: 10, y: 10 }, testTraits, 1);
+    const animal = new TestAnimal({ x: 10, y: 10 }, testTraits, mockEnvironment);
     
     // Test cardinal directions
     expect(animal.directionTo({ x: 10, y: 0 })).toBe(Direction.NORTH);

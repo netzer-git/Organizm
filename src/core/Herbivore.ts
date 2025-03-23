@@ -8,7 +8,6 @@ import { Resource } from './Resource';
  * A basic herbivore animal implementation
  */
 export class Herbivore extends Animal {
-  private environment: Environment;
   private targetResource: Resource | null = null;
 
   /**
@@ -19,8 +18,7 @@ export class Herbivore extends Animal {
    * @param generation Generation number
    */
   constructor(position: Position, traits: Traits, environment: Environment, generation: number = 1) {
-    super(position, traits, generation);
-    this.environment = environment;
+    super(position, traits, environment, generation);
   }
 
   /**

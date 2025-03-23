@@ -1,34 +1,34 @@
 /**
- * Log levels for the logger
+ * Log levels for the application
  */
 export enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3
+  ERROR = 0,
+  WARN = 1,
+  INFO = 2,
+  DEBUG = 3
 }
 
 /**
- * Simple logging utility to track animal activities
+ * Logger utility for consistent logging across the application
  */
 export class Logger {
+  private static currentLogLevel: LogLevel = LogLevel.INFO;
   private scope: string;
-  private static logLevel: LogLevel = LogLevel.INFO;
 
   /**
-   * Set the global log level
-   * @param level The minimum log level to display
-   */
-  public static setLogLevel(level: LogLevel): void {
-    Logger.logLevel = level;
-  }
-
-  /**
-   * Create a new logger with a specific scope
-   * @param scope The scope identifier for this logger
+   * Create a new logger with a specified scope
+   * @param scope The scope of this logger instance
    */
   constructor(scope: string) {
     this.scope = scope;
+  }
+
+  /**
+   * Set the global log level
+   * @param level The log level to set
+   */
+  public static setLogLevel(level: LogLevel): void {
+    Logger.currentLogLevel = level;
   }
 
   /**
@@ -64,18 +64,19 @@ export class Logger {
   }
 
   /**
-   * Internal log method
-   * @param level The log level
+   * Log a message at the specified level if the global log level allows it
+   * @param level The log level of the message
    * @param message The message to log
    */
   private log(level: LogLevel, message: string): void {
-    if (level < Logger.logLevel) return;
+    if (level > Logger.currentLogLevel) {
+      return;
+    }
 
     const timestamp = new Date().toISOString();
     const levelString = LogLevel[level];
-    
     const formattedMessage = `[${timestamp}] [${levelString}] [${this.scope}] ${message}`;
-    
+
     switch (level) {
       case LogLevel.ERROR:
         console.error(formattedMessage);

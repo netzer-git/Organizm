@@ -1,6 +1,7 @@
 import { Position, Direction, Traits, AnimalState, AnimalStats, ResourceType } from './types';
 import { Logger } from '../utils/Logger';
 import { generateUniqueId } from '../utils/helpers';
+import { Environment } from './Environment';
 
 /**
  * Abstract base class for all animals in the simulation
@@ -11,18 +12,20 @@ export abstract class Animal {
   public direction: Direction = Direction.NONE;
   public state: AnimalState = AnimalState.IDLE;
   public age: number = 0;
-  public energy: number = 100; // Default starting energy
+  private _energy: number = 100; // Default starting energy
   public health: number = 100; // Default starting health
   public traits: Traits;
   public stats: AnimalStats;
   
   private logger: Logger;
   private isDead: boolean = false;
+  protected environment: Environment;
 
-  constructor(position: Position, traits: Traits, generation: number = 1) {
+  constructor(position: Position, traits: Traits, environment: Environment, generation: number = 1) {
     this.id = generateUniqueId();
     this.position = { ...position };
     this.traits = { ...traits };
+    this.environment = environment;
     this.stats = {
       generation,
       children: 0,
@@ -32,6 +35,20 @@ export abstract class Animal {
     };
     this.logger = new Logger(`Animal-${this.id}`);
     this.logger.info(`Animal created at position (${position.x}, ${position.y})`);
+  }
+
+  /**
+   * Energy getter - allows for proper jest.spyOn in tests
+   */
+  public get energy(): number {
+    return this._energy;
+  }
+
+  /**
+   * Energy setter - allows for proper jest.spyOn in tests
+   */
+  public set energy(value: number) {
+    this._energy = value;
   }
 
   /**
@@ -49,7 +66,7 @@ export abstract class Animal {
     this.consumeEnergy(this.traits.metabolism * deltaTime);
     
     // Check if the animal should die of old age or energy depletion
-    if (this.age >= this.traits.lifespan || this.energy <= 0) {
+    if (this.age >= this.traits.lifespan || this._energy <= 0) {
       this.die();
       return;
     }
@@ -170,8 +187,8 @@ export abstract class Animal {
    * @param amount Amount of energy to consume
    */
   protected consumeEnergy(amount: number): void {
-    this.energy = Math.max(0, this.energy - amount);
-    if (this.energy <= 0) {
+    this._energy = Math.max(0, this._energy - amount);
+    if (this._energy <= 0) {
       this.logger.debug('Ran out of energy');
     }
   }
@@ -182,7 +199,7 @@ export abstract class Animal {
    */
   protected gainEnergy(amount: number): void {
     // Cap energy at 100
-    this.energy = Math.min(100, this.energy + amount);
+    this._energy = Math.min(100, this._energy + amount);
   }
 
   /* Implementation of state-specific behaviors */
@@ -237,8 +254,17 @@ export abstract class Animal {
     };
 
     const vector = directionVectors[this.direction];
-    this.position.x += vector.x * distance;
-    this.position.y += vector.y * distance;
+    const newPosition = {
+      x: this.position.x + vector.x * distance,
+      y: this.position.y + vector.y * distance
+    };
+    
+    // Use the environment to ensure the animal stays within bounds
+    if (this.environment) {
+      this.position = this.environment.boundPosition(newPosition);
+    } else {
+      this.position = newPosition;
+    }
   }
 
   /**
