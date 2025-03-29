@@ -5,10 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Organizm - Ecosystem Simulation</title>
   <style>
+    :root {
+      --primary-color: #4CAF50;
+      --secondary-color: #2196F3;
+      --danger-color: #f44336;
+      --carnivore-color: #f44336;
+      --herbivore-color: #4CAF50;
+      --dark-bg: #222;
+      --panel-bg: rgba(0, 0, 0, 0.7);
+      --border-color: #555;
+    }
+    
     body {
       margin: 0;
       padding: 0;
-      background-color: #222;
+      background-color: var(--dark-bg);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: #eee;
       overflow: hidden;
@@ -29,23 +40,34 @@
       justify-content: space-between;
       background-color: #333;
       padding: 10px;
-      border-top: 1px solid #555;
+      border-top: 1px solid var(--border-color);
     }
     
     .control-panel {
-      background-color: rgba(0, 0, 0, 0.7);
+      background-color: var(--panel-bg);
       border-radius: 6px;
       padding: 10px;
       margin: 5px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(5px);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .control-panel:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
     }
     
     .panel-title {
       font-weight: bold;
       margin-bottom: 10px;
       text-align: center;
-      border-bottom: 1px solid #555;
+      border-bottom: 1px solid var(--border-color);
       padding-bottom: 5px;
+      text-transform: uppercase;
+      font-size: 14px;
+      letter-spacing: 1px;
     }
     
     #stats-panel {
@@ -66,14 +88,16 @@
       display: flex;
       justify-content: space-between;
       margin: 5px 0;
+      align-items: center;
     }
     
     .population-bar {
       height: 10px;
-      background-color: #666;
+      background-color: #444;
       margin-top: 3px;
       border-radius: 5px;
       overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
     }
     
     .population-value {
@@ -82,15 +106,15 @@
     }
     
     .herbivore-bar {
-      background-color: #4CAF50;
+      background-color: var(--herbivore-color);
     }
     
     .carnivore-bar {
-      background-color: #f44336;
+      background-color: var(--carnivore-color);
     }
     
     button {
-      background-color: #4CAF50;
+      background-color: var(--primary-color);
       border: none;
       color: white;
       padding: 8px 16px;
@@ -101,15 +125,23 @@
       margin: 4px 2px;
       cursor: pointer;
       border-radius: 4px;
-      transition: background-color 0.2s;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
     
     button:hover {
       background-color: #45a049;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     }
     
     button.alt {
-      background-color: #2196F3;
+      background-color: var(--secondary-color);
     }
     
     button.alt:hover {
@@ -117,7 +149,7 @@
     }
     
     button.danger {
-      background-color: #f44336;
+      background-color: var(--danger-color);
     }
     
     button.danger:hover {
@@ -137,6 +169,27 @@
     .slider {
       flex: 1;
       margin: 0 10px;
+      -webkit-appearance: none;
+      height: 5px;
+      border-radius: 5px;
+      background: #444;
+      outline: none;
+    }
+    
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--secondary-color);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
     }
     
     .slider-value {
@@ -182,7 +235,7 @@
     }
     
     input:checked + .toggle-slider {
-      background-color: #2196F3;
+      background-color: var(--secondary-color);
     }
     
     input:checked + .toggle-slider:before {
@@ -203,6 +256,8 @@
       background-color: rgba(0, 0, 0, 0.3);
       border-radius: 4px;
       position: relative;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .chart-label {
@@ -214,10 +269,12 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
-      background-color: rgba(0, 0, 0, 0.7);
+      background-color: var(--panel-bg);
       padding: 10px;
       border-radius: 6px;
       max-width: 250px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     }
     
     #selected-entity-info {
@@ -226,28 +283,240 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background-color: rgba(0, 0, 0, 0.8);
+      background-color: rgba(0, 0, 0, 0.85);
       padding: 15px;
       border-radius: 8px;
       z-index: 100;
       min-width: 300px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
     }
     
     .trait-bar {
       height: 8px;
       margin-top: 2px;
+      margin-bottom: 8px;
       background-color: #444;
       border-radius: 4px;
       overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
     }
     
     .trait-value {
       height: 100%;
-      background-color: #2196F3;
+      background-color: var(--secondary-color);
+      transition: width 0.3s ease-in-out;
+    }
+    
+    #legend {
+      position: absolute;
+      bottom: 220px;
+      left: 10px;
+      background-color: var(--panel-bg);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      font-size: 12px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    
+    .legend-icon {
+      width: 14px;
+      height: 14px;
+      margin-right: 8px;
+      border-radius: 3px;
+    }
+    
+    .close-button {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: none;
+      border: none;
+      color: white;
+      padding: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+      box-shadow: none;
+    }
+    
+    .close-button:hover {
+      opacity: 1;
+      background: none;
+      box-shadow: none;
+      transform: none;
+    }
+    
+    .animal-action-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    
+    .animal-action-buttons button {
+      flex: 1;
+      margin: 0 5px;
+      padding: 5px;
+      font-size: 12px;
+    }
+    
+    .tooltip {
+      position: absolute;
+      background-color: var(--panel-bg);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+    }
+    
+    #help-panel {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.9);
+      padding: 20px;
+      border-radius: 8px;
+      z-index: 200;
+      max-width: 600px;
+      width: 80%;
+      max-height: 80%;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+    }
+    
+    .help-section {
+      margin-bottom: 20px;
+    }
+    
+    .help-section h3 {
+      color: var(--secondary-color);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+    }
+    
+    .help-section p {
+      margin: 10px 0;
+      line-height: 1.5;
+    }
+    
+    .help-section ul {
+      padding-left: 20px;
+    }
+    
+    .help-section li {
+      margin-bottom: 5px;
+    }
+    
+    .keyboard-shortcuts {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 5px 15px;
+      margin-top: 10px;
+    }
+    
+    .key {
+      background-color: #333;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: monospace;
+      display: inline-block;
+    }
+    
+    #navbar {
+      display: flex;
+      background-color: #111;
+      padding: 5px 10px;
+      align-items: center;
+    }
+    
+    #navbar h1 {
+      margin: 0;
+      font-size: 18px;
+      color: #fff;
+      margin-right: 20px;
+    }
+    
+    #navbar-buttons {
+      display: flex;
+    }
+    
+    #navbar-buttons button {
+      padding: 4px 10px;
+      margin: 0 5px;
+      font-size: 12px;
+    }
+    
+    @media (max-width: 768px) {
+      #controls-container {
+        flex-direction: column;
+      }
+      
+      .control-panel {
+        width: 100%;
+        max-width: none;
+        margin: 5px 0;
+      }
+      
+      #stats-panel, #species-panel {
+        position: static;
+        width: auto;
+        margin: 5px;
+      }
+      
+      #charts-panel, #environment-info {
+        position: static;
+        width: auto;
+        margin: 5px;
+      }
+      
+      #legend {
+        position: static;
+        margin: 5px;
+      }
+      
+      body {
+        overflow-y: auto;
+      }
+      
+      #help-panel {
+        width: 95%;
+        max-height: 90%;
+      }
     }
   </style>
 </head>
 <body>
+  <div id="navbar">
+    <h1>Organizm Ecosystem</h1>
+    <div id="navbar-buttons">
+      <button id="recenter-btn" class="alt">Recenter View</button>
+      <button id="help-btn">Help</button>
+    </div>
+  </div>
+  
   <div id="simulation-container">
     <!-- PixiJS canvas will be injected here -->
     
@@ -321,6 +590,39 @@
       </div>
     </div>
     
+    <!-- Simulation Legend -->
+    <div id="legend" class="control-panel">
+      <div class="panel-title">Legend</div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #4CAF50; border-radius: 50%;"></div>
+        <span>Herbivore</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #f44336; border-radius: 50%;"></div>
+        <span>Carnivore</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #32CD32;"></div>
+        <span>Plant</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #00FFFF;"></div>
+        <span>Water</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #9C27B0; width: 3px; height: 14px; border-radius: 0;"></div>
+        <span>Sleeping</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #FF9800; width: 3px; height: 14px; border-radius: 0;"></div>
+        <span>Eating</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-icon" style="background-color: #E91E63; width: 3px; height: 14px; border-radius: 0;"></div>
+        <span>Mating</span>
+      </div>
+    </div>
+    
     <!-- Population Charts Panel -->
     <div id="charts-panel" class="control-panel">
       <div class="panel-title">Population History</div>
@@ -329,7 +631,7 @@
     </div>
     
     <!-- Environment Info -->
-    <div id="environment-info">
+    <div id="environment-info" class="control-panel">
       <div class="panel-title">Environment</div>
       <div class="stat-row">
         <span>Size:</span>
@@ -341,8 +643,12 @@
       </div>
     </div>
     
+    <!-- Tooltip element for hover information -->
+    <div id="tooltip" class="tooltip"></div>
+    
     <!-- Entity Details (shown when an animal is selected) -->
     <div id="selected-entity-info" class="control-panel">
+      <button class="close-button" id="close-entity-details">×</button>
       <div class="panel-title">Animal Details</div>
       <div class="stat-row">
         <span>Type:</span>
@@ -393,8 +699,78 @@
       <div class="trait-bar">
         <div id="entity-metabolism-bar" class="trait-value" style="width: 0%"></div>
       </div>
-      <div style="text-align: center; margin-top: 15px;">
-        <button id="close-entity-details">Close</button>
+      <div class="animal-action-buttons">
+        <button id="follow-animal" class="alt">Follow</button>
+        <button id="close-entity-details-btn">Close</button>
+      </div>
+    </div>
+    
+    <!-- Help Panel -->
+    <div id="help-panel" class="control-panel">
+      <button class="close-button" id="close-help">×</button>
+      <div class="panel-title">Organizm Ecosystem Help</div>
+      
+      <div class="help-section">
+        <h3>Overview</h3>
+        <p>
+          Welcome to Organizm, an ecosystem simulation where animals evolve and adapt to their environment.
+          Watch as herbivores and carnivores compete for resources, reproduce, and evolve over generations.
+        </p>
+      </div>
+      
+      <div class="help-section">
+        <h3>Controls</h3>
+        <ul>
+          <li><strong>Right-click + drag</strong> or <strong>Middle-click + drag</strong> to pan the view</li>
+          <li>Click on an animal to see its details</li>
+          <li>Use the "Follow" button to keep the camera centered on a specific animal</li>
+          <li>Adjust the zoom level using the slider in Display Options</li>
+          <li>Reset the simulation with new parameters using the Reset button</li>
+        </ul>
+        
+        <div class="keyboard-shortcuts">
+          <div><span class="key">←</span> <span class="key">↑</span> <span class="key">↓</span> <span class="key">→</span></div>
+          <div>Pan the view</div>
+          <div><span class="key">Home</span></div>
+          <div>Center the view</div>
+        </div>
+      </div>
+      
+      <div class="help-section">
+        <h3>Animal Types</h3>
+        <ul>
+          <li><span style="color: #4CAF50">Herbivores (Green)</span>: Eat plants, avoid carnivores</li>
+          <li><span style="color: #f44336">Carnivores (Red)</span>: Hunt herbivores</li>
+        </ul>
+      </div>
+      
+      <div class="help-section">
+        <h3>Animal States</h3>
+        <ul>
+          <li><span style="color: #9C27B0">Purple border</span>: Sleeping (recovering energy)</li>
+          <li><span style="color: #FF9800">Orange border</span>: Eating</li>
+          <li><span style="color: #E91E63">Pink border</span>: Mating</li>
+          <li><span style="color: #FF5722">Deep orange border</span>: Low health/energy</li>
+        </ul>
+      </div>
+      
+      <div class="help-section">
+        <h3>Evolution</h3>
+        <p>
+          As animals reproduce, they pass on traits to their offspring with slight mutations.
+          Successful traits will become more common over time as better-adapted animals survive longer
+          and reproduce more often. Watch the average trait values in the Species Panel to see evolution in action.
+        </p>
+      </div>
+      
+      <div class="help-section">
+        <h3>Display Options</h3>
+        <ul>
+          <li><strong>Show Trails</strong>: Display the movement paths of animals</li>
+          <li><strong>Show Stats</strong>: Toggle visibility of statistics panels</li>
+          <li><strong>Show Legend</strong>: Toggle the legend panel</li>
+          <li><strong>Show Minimap</strong>: Toggle the minimap in the bottom-right corner</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -449,6 +825,20 @@
         <span>Show Stats:</span>
         <label class="toggle-switch">
           <input type="checkbox" id="show-stats" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="stat-row">
+        <span>Show Legend:</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="show-legend" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="stat-row">
+        <span>Show Minimap:</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="show-minimap" checked>
           <span class="toggle-slider"></span>
         </label>
       </div>

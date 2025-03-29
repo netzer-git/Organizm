@@ -12,6 +12,8 @@ import { Carnivore } from '../core/Carnivore';
 export interface RendererOptions {
   showTrails?: boolean;
   zoomLevel?: number;
+  highlightHover?: boolean;
+  showMinimap?: boolean;
 }
 
 /**
@@ -31,9 +33,19 @@ export class Renderer {
   private zoomLevel: number = 1;
   private showTrails: boolean = false;
   private selectedAnimal: Animal | null = null;
+  private followingAnimal: Animal | null = null;
   private animalTrails: Map<string, {x: number, y: number}[]> = new Map();
   private maxTrailLength: number = 50;
   private onAnimalSelected: ((animal: Animal | null) => void) | null = null;
+  private highlightHover: boolean = true;
+  private hoveredAnimal: Animal | null = null;
+  private tooltipElement: HTMLElement | null = null;
+  private animalsByPosition: Map<string, Animal> = new Map();
+  private isPanning: boolean = false;
+  private lastPanPosition: { x: number, y: number } | null = null;
+  private showMinimap: boolean = true;
+  private minimapGraphics: Graphics;
+  private minimapContainer: Container;
   
   /**
    * Create a new renderer
@@ -44,6 +56,8 @@ export class Renderer {
     this.app = app;
     this.showTrails = options.showTrails || false;
     this.zoomLevel = options.zoomLevel || 1;
+    this.highlightHover = options.highlightHover !== undefined ? options.highlightHover : true;
+    this.showMinimap = options.showMinimap !== undefined ? options.showMinimap : true;
     
     // Create containers for different visual layers
     this.worldContainer = new Container();
@@ -65,10 +79,24 @@ export class Renderer {
     this.animalGraphics.eventMode = 'static';
     this.animalGraphics.cursor = 'pointer';
     this.animalGraphics.on('pointerdown', this.handleAnimalClick.bind(this));
+    this.animalGraphics.on('pointerover', this.handlePointerOver.bind(this));
+    this.animalGraphics.on('pointerout', this.handlePointerOut.bind(this));
     
     // Create UI elements
     this.uiContainer = new Container();
     this.app.stage.addChild(this.uiContainer);
+    
+    // Create minimap
+    this.minimapContainer = new Container();
+    this.minimapGraphics = new Graphics();
+    this.minimapContainer.addChild(this.minimapGraphics);
+    this.app.stage.addChild(this.minimapContainer);
+    
+    // Position minimap in bottom-right corner
+    this.minimapContainer.position.set(
+      this.app.renderer.width - 120, 
+      this.app.renderer.height - 120
+    );
     
     // Text style for UI elements
     const textStyle = new TextStyle({
@@ -93,6 +121,143 @@ export class Renderer {
     this.worldContainer.scale.set(this.zoomLevel);
     // Center the world container
     this.centerWorldContainer();
+    
+    // Get tooltip element
+    this.tooltipElement = document.getElementById('tooltip');
+    
+    // Set up event handlers
+    this.setupEventListeners();
+    
+    // Set up panning controls for the world view
+    this.setupPanningControls();
+  }
+  
+  /**
+   * Set up event listeners for UI interactions
+   */
+  private setupEventListeners(): void {
+    // Follow button
+    const followButton = document.getElementById('follow-animal');
+    if (followButton) {
+      followButton.addEventListener('click', () => {
+        if (this.selectedAnimal) {
+          if (this.followingAnimal === this.selectedAnimal) {
+            // Unfollow if already following this animal
+            this.stopFollowingAnimal();
+            followButton.textContent = 'Follow';
+          } else {
+            // Start following
+            this.followAnimal(this.selectedAnimal);
+            followButton.textContent = 'Unfollow';
+          }
+        }
+      });
+    }
+    
+    // Legend toggle
+    const legendToggle = document.getElementById('show-legend');
+    if (legendToggle) {
+      legendToggle.addEventListener('change', (e) => {
+        const legend = document.getElementById('legend');
+        if (legend) {
+          legend.style.display = (e.target as HTMLInputElement).checked ? 'block' : 'none';
+        }
+      });
+    }
+    
+    // Close buttons for animal details
+    const closeButtons = document.querySelectorAll('#close-entity-details, #close-entity-details-btn');
+    closeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectAnimal(null);
+      });
+    });
+  }
+  
+  /**
+   * Set up camera panning controls
+   */
+  private setupPanningControls(): void {
+    // Add mouse listeners for panning
+    this.app.stage.eventMode = 'static';
+    
+    // Handle right-click and drag to pan
+    this.app.stage.on('rightdown', this.startPan.bind(this));
+    this.app.stage.on('rightup', this.stopPan.bind(this));
+    this.app.stage.on('rightupoutside', this.stopPan.bind(this));
+    this.app.stage.on('pointermove', this.updatePan.bind(this));
+    
+    // Add middle mouse button pan too (more intuitive for many users)
+    this.app.stage.on('mousedown', (e: FederatedPointerEvent) => {
+      if (e.button === 1) { // Middle mouse button
+        e.preventDefault();
+        e.stopPropagation();
+        this.startPan(e);
+      }
+    });
+    
+    // Add key controls for panning with arrows
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      const panSpeed = 20;
+      switch(e.key) {
+        case 'ArrowUp':
+          this.worldContainer.position.y += panSpeed;
+          break;
+        case 'ArrowDown':
+          this.worldContainer.position.y -= panSpeed;
+          break;
+        case 'ArrowLeft':
+          this.worldContainer.position.x += panSpeed;
+          break;
+        case 'ArrowRight':
+          this.worldContainer.position.x -= panSpeed;
+          break;
+        case 'Home': // Reset view
+          this.centerWorldContainer();
+          break;
+      }
+    });
+  }
+  
+  /**
+   * Start panning on mouse down
+   */
+  private startPan(e: FederatedPointerEvent): void {
+    this.isPanning = true;
+    this.lastPanPosition = { x: e.global.x, y: e.global.y };
+    this.app.stage.cursor = 'grabbing';
+  }
+  
+  /**
+   * Stop panning on mouse up
+   */
+  private stopPan(): void {
+    this.isPanning = false;
+    this.lastPanPosition = null;
+    this.app.stage.cursor = 'default';
+  }
+  
+  /**
+   * Update pan position on mouse move
+   */
+  private updatePan(e: FederatedPointerEvent): void {
+    if (!this.isPanning || !this.lastPanPosition) return;
+    
+    // Calculate drag distance
+    const dx = e.global.x - this.lastPanPosition.x;
+    const dy = e.global.y - this.lastPanPosition.y;
+    
+    // Update container position
+    this.worldContainer.position.x += dx;
+    this.worldContainer.position.y += dy;
+    
+    // Update last position
+    this.lastPanPosition = { x: e.global.x, y: e.global.y };
+    
+    // Stop following if manually panning
+    if (this.followingAnimal && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+      this.stopFollowingAnimal();
+    }
   }
   
   /**
@@ -122,6 +287,15 @@ export class Renderer {
       this.worldContainer.scale.set(this.zoomLevel);
       this.centerWorldContainer();
     }
+    
+    if (options.highlightHover !== undefined) {
+      this.highlightHover = options.highlightHover;
+    }
+    
+    if (options.showMinimap !== undefined) {
+      this.showMinimap = options.showMinimap;
+      this.minimapContainer.visible = this.showMinimap;
+    }
   }
   
   /**
@@ -136,15 +310,143 @@ export class Renderer {
   }
   
   /**
+   * Center the view on a specific position
+   * @param position The position to center on
+   */
+  private centerOnPosition(position: { x: number, y: number }): void {
+    // Convert position to world coordinates
+    const worldX = position.x * this.cellSize;
+    const worldY = position.y * this.cellSize;
+    
+    // Calculate new container position to center on this point
+    this.worldContainer.position.x = (this.app.renderer.width / 2) - (worldX * this.zoomLevel);
+    this.worldContainer.position.y = (this.app.renderer.height / 2) - (worldY * this.zoomLevel);
+  }
+  
+  /**
+   * Get current zoom level
+   * @returns The current zoom level
+   */
+  public getZoomLevel(): number {
+    return this.zoomLevel;
+  }
+  
+  /**
+   * Check if currently following a specific animal
+   * @param animal The animal to check
+   * @returns True if following this animal
+   */
+  public isFollowingAnimal(animal: Animal): boolean {
+    return this.followingAnimal === animal;
+  }
+  
+  /**
+   * Start following a specific animal
+   * @param animal The animal to follow
+   */
+  public followAnimal(animal: Animal): void {
+    this.followingAnimal = animal;
+    
+    // Update follow button text
+    const followButton = document.getElementById('follow-animal');
+    if (followButton && this.selectedAnimal === animal) {
+      followButton.textContent = 'Unfollow';
+    }
+  }
+  
+  /**
+   * Stop following the current animal
+   */
+  public stopFollowingAnimal(): void {
+    this.followingAnimal = null;
+    
+    // Update follow button text
+    const followButton = document.getElementById('follow-animal');
+    if (followButton) {
+      followButton.textContent = 'Follow';
+    }
+  }
+  
+  /**
    * Select an animal to highlight
    * @param animal The animal to select, or null to deselect
    */
   public selectAnimal(animal: Animal | null): void {
     this.selectedAnimal = animal;
     
+    // Show/hide detail panel
+    const detailPanel = document.getElementById('selected-entity-info');
+    if (detailPanel) {
+      detailPanel.style.display = animal ? 'block' : 'none';
+      
+      // Update follow button
+      const followButton = document.getElementById('follow-animal');
+      if (followButton && animal) {
+        followButton.textContent = (this.followingAnimal === animal) ? 'Unfollow' : 'Follow';
+      }
+    }
+    
     if (this.onAnimalSelected) {
       this.onAnimalSelected(animal);
     }
+  }
+  
+  /**
+   * Handle hover events on animals
+   */
+  private handlePointerOver(event: FederatedPointerEvent): void {
+    if (!this.highlightHover) return;
+    
+    const position = event.data.getLocalPosition(this.worldContainer);
+    const hoverX = position.x / this.cellSize;
+    const hoverY = position.y / this.cellSize;
+    
+    // Find animal being hovered 
+    this.animalsByPosition.forEach((animal) => {
+      const dx = animal.position.x - hoverX;
+      const dy = animal.position.y - hoverY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      const animalRadius = 0.3 + (animal.traits.strength * 0.05 * 0.3);
+      
+      if (distance <= animalRadius * 1.5) {
+        this.hoveredAnimal = animal;
+        this.showTooltip(animal, event.global.x, event.global.y);
+      }
+    });
+  }
+  
+  /**
+   * Handle pointer out events
+   */
+  private handlePointerOut(): void {
+    this.hoveredAnimal = null;
+    this.hideTooltip();
+  }
+  
+  /**
+   * Show tooltip with animal information
+   */
+  private showTooltip(animal: Animal, x: number, y: number): void {
+    if (!this.tooltipElement) return;
+    
+    const typeText = animal instanceof Herbivore ? 'Herbivore' : 'Carnivore';
+    const energyText = animal.energy.toFixed(1);
+    const healthText = animal.health.toFixed(1);
+    const stateText = AnimalState[animal.state];
+    
+    this.tooltipElement.innerHTML = `${typeText} - Gen ${animal.stats.generation}<br>Energy: ${energyText} | Health: ${healthText}<br>State: ${stateText}`;
+    this.tooltipElement.style.left = `${x + 10}px`;
+    this.tooltipElement.style.top = `${y + 10}px`;
+    this.tooltipElement.style.opacity = '1';
+  }
+  
+  /**
+   * Hide the tooltip
+   */
+  private hideTooltip(): void {
+    if (!this.tooltipElement) return;
+    this.tooltipElement.style.opacity = '0';
   }
   
   /**
@@ -177,9 +479,6 @@ export class Renderer {
     this.selectAnimal(closestAnimal);
   }
   
-  // Store animals by position for faster lookup during click events
-  private animalsByPosition: Map<string, Animal> = new Map();
-  
   /**
    * Render the current state of the simulation
    * @param environment The environment to render
@@ -201,6 +500,11 @@ export class Renderer {
     // Clear animal positions map
     this.animalsByPosition.clear();
     
+    // If following an animal, center the view on it
+    if (this.followingAnimal && !this.followingAnimal.dead) {
+      this.centerOnPosition(this.followingAnimal.position);
+    }
+    
     // Render terrain
     this.renderTerrain(environment);
     
@@ -219,6 +523,22 @@ export class Renderer {
     // Update UI elements
     this.weatherText.text = `Weather: ${Weather[environment.weather]}`;
     this.timeText.text = `Time: ${Math.floor(simulationTime)}`;
+    
+    // Check if followed animal is dead
+    if (this.followingAnimal && this.followingAnimal.dead) {
+      this.stopFollowingAnimal();
+    }
+    
+    // Render minimap if enabled
+    if (this.showMinimap) {
+      this.renderMinimap(environment, animals);
+    }
+    
+    // Update minimap position on window resize
+    this.minimapContainer.position.set(
+      this.app.renderer.width - 120, 
+      this.app.renderer.height - 120
+    );
   }
   
   /**
@@ -262,7 +582,12 @@ export class Renderer {
       const isHerbivore = animalId.charCodeAt(0) % 2 === 0;
       const trailColor = isHerbivore ? 0x4CAF50 : 0xf44336;
       
-      this.trailGraphics.lineStyle(1, trailColor, 0.3);
+      // Make the trail more visible for the followed animal
+      const isFollowed = this.followingAnimal && this.followingAnimal.id === animalId;
+      const opacity = isFollowed ? 0.7 : 0.3;
+      const lineWidth = isFollowed ? 2 : 1;
+      
+      this.trailGraphics.lineStyle(lineWidth, trailColor, opacity);
       
       // Draw trail as a line
       this.trailGraphics.moveTo(
@@ -369,6 +694,12 @@ export class Renderer {
       if (animal === this.selectedAnimal) {
         outlineColor = 0xFFFF00; // Yellow for selected animal
         outlineWidth = 3;
+      } else if (animal === this.followingAnimal) {
+        outlineColor = 0x00FFFF; // Cyan for followed animal
+        outlineWidth = 3;
+      } else if (animal === this.hoveredAnimal) {
+        outlineColor = 0xFFFFFF; // White for hovered animal
+        outlineWidth = 2;
       } else if (animal.state === AnimalState.SLEEPING) {
         outlineColor = 0x9C27B0; // Purple for sleeping
       } else if (animal.state === AnimalState.EATING) {
@@ -391,7 +722,7 @@ export class Renderer {
       this.animalGraphics.endFill();
       
       // Draw direction indicator (if moving)
-      if (animal.direction !== undefined && animal.direction !== null && animal.direction !== 0) {
+      if (animal.direction !== undefined && animal.direction !== null && animal.direction > 0) {
         const directionLength = size * 1.5;
         const angle = this.getDirectionAngle(animal.direction);
         
@@ -416,6 +747,106 @@ export class Renderer {
         this.animalGraphics.lineTo(x, y);
         this.animalGraphics.endFill();
       }
+      
+      // Special indicators for followed animal
+      if (animal === this.followingAnimal && !animal.dead) {
+        // Add a glowing effect
+        this.animalGraphics.lineStyle(1, 0x00FFFF, 0.5);
+        this.animalGraphics.drawCircle(x, y, size * 1.8);
+        
+        // Add a pulsing circle
+        const pulseAmount = (Math.sin(Date.now() / 300) + 1) / 4 + 1.2; // 1.2 to 1.7
+        this.animalGraphics.lineStyle(2, 0x00FFFF, 0.3);
+        this.animalGraphics.drawCircle(x, y, size * pulseAmount);
+      }
+    }
+  }
+  
+  /**
+   * Render the minimap
+   * @param environment The environment to render
+   * @param animals The animals to render
+   */
+  private renderMinimap(environment: Environment, animals: Animal[]): void {
+    this.minimapGraphics.clear();
+    
+    const minimapSize = 100;
+    const border = 2;
+    
+    // Draw background and border
+    this.minimapGraphics.beginFill(0x000000, 0.5);
+    this.minimapGraphics.drawRect(0, 0, minimapSize + border * 2, minimapSize + border * 2);
+    this.minimapGraphics.endFill();
+    
+    // Draw the environment
+    const cellSize = minimapSize / Math.max(environment.width, environment.height);
+    
+    // Draw terrain
+    for (let y = 0; y < environment.height; y++) {
+      for (let x = 0; x < environment.width; x++) {
+        const terrainType = environment.getTerrainAt({ x, y });
+        const terrainColor = this.getTerrainColor(terrainType);
+        
+        // Draw at reduced opacity
+        this.minimapGraphics.beginFill(terrainColor, 0.6);
+        this.minimapGraphics.drawRect(
+          border + x * cellSize, 
+          border + y * cellSize, 
+          cellSize, 
+          cellSize
+        );
+        this.minimapGraphics.endFill();
+      }
+    }
+    
+    // Draw animals as small dots
+    for (const animal of animals) {
+      if (animal.dead) continue;
+      
+      let color = 0xFFFFFF;
+      if (animal instanceof Herbivore) {
+        color = 0x4CAF50; // Green
+      } else if (animal instanceof Carnivore) {
+        color = 0xf44336; // Red
+      }
+      
+      const dotSize = animal === this.selectedAnimal || animal === this.followingAnimal 
+        ? 2.5 : 1.5;
+      
+      this.minimapGraphics.beginFill(color);
+      this.minimapGraphics.drawCircle(
+        border + animal.position.x * cellSize,
+        border + animal.position.y * cellSize,
+        dotSize
+      );
+      this.minimapGraphics.endFill();
+    }
+    
+    // Draw viewport rectangle
+    const viewportWidth = this.app.renderer.width / (this.cellSize * this.zoomLevel);
+    const viewportHeight = this.app.renderer.height / (this.cellSize * this.zoomLevel);
+    
+    // Calculate the visible area of the world based on current pan/zoom
+    const worldPos = this.worldContainer.position;
+    const viewX = -worldPos.x / (this.cellSize * this.zoomLevel);
+    const viewY = -worldPos.y / (this.cellSize * this.zoomLevel);
+    
+    this.minimapGraphics.lineStyle(1, 0xFFFFFF, 0.8);
+    this.minimapGraphics.drawRect(
+      border + viewX * cellSize,
+      border + viewY * cellSize,
+      viewportWidth * cellSize,
+      viewportHeight * cellSize
+    );
+    
+    // Draw followed animal indicator if needed
+    if (this.followingAnimal && !this.followingAnimal.dead) {
+      this.minimapGraphics.lineStyle(1, 0x00FFFF, 1);
+      this.minimapGraphics.drawCircle(
+        border + this.followingAnimal.position.x * cellSize,
+        border + this.followingAnimal.position.y * cellSize,
+        3
+      );
     }
   }
   

@@ -27,7 +27,7 @@ const simulation = new Simulation(config);
 const app = new Application({
   width: window.innerWidth,
   height: window.innerHeight - 100, // Leave space for controls at bottom
-  backgroundColor: 0x333333, // Dark gray background
+  backgroundColor: 0x111111, // Very dark background for better visibility
   resolution: window.devicePixelRatio || 1,
   antialias: true,
 });
@@ -35,14 +35,16 @@ const app = new Application({
 // Create renderer options
 const rendererOptions: RendererOptions = {
   showTrails: false,
-  zoomLevel: 1.0
+  zoomLevel: 1.0,
+  highlightHover: true,
+  showMinimap: true
 };
 
 // Create the renderer
 const renderer = new Renderer(app, rendererOptions);
 
 // Store statistics history for charts
-const populationHistory: { herbivores: number, carnivores: number }[] = [];
+const populationHistory: { herbivores: number, carnivores: number, plants: number }[] = [];
 const populationHistoryMaxLength = 100;
 
 // Keep track of average traits for displaying in UI
@@ -61,10 +63,13 @@ window.addEventListener('resize', () => {
     window.innerWidth,
     window.innerHeight - 100
   );
+  renderer.setOptions({ zoomLevel: renderer.getZoomLevel() }); // Force recenter
 });
 
 // Set up the game loop
 let lastTime = 0;
+let timeElapsed = 0;
+let statsUpdateInterval = 5; // Update stats every 5 time units
 app.ticker.add((delta) => {
   const now = Date.now();
   const deltaTime = lastTime ? (now - lastTime) / 1000 : 0;
@@ -77,8 +82,10 @@ app.ticker.add((delta) => {
   const state = simulation.getState();
   renderer.render(state.environment, state.animals, state.simulationTime);
   
-  // Record population history for chart
-  if (Math.floor(state.simulationTime) % 5 === 0) { // Every 5 time units
+  // Record population history for chart every N time units
+  timeElapsed += deltaTime;
+  if (timeElapsed >= statsUpdateInterval) {
+    timeElapsed = 0;
     recordPopulationHistory(state.statistics);
   }
   
@@ -93,20 +100,27 @@ app.ticker.add((delta) => {
 renderer.setAnimalSelectedCallback((animal) => {
   selectedAnimal = animal;
   updateSelectedAnimalUI();
+  
+  // If we were following an animal and deselected it, stop following
+  if (!animal) {
+    renderer.stopFollowingAnimal();
+  }
 });
 
 /**
  * Record population history for charts
  */
 function recordPopulationHistory(statistics: any): void {
-  // Only add new entry if the time is different
+  // Only add new entry if the values are different
   if (populationHistory.length === 0 || 
       populationHistory[populationHistory.length - 1].herbivores !== statistics.herbivoreCount ||
-      populationHistory[populationHistory.length - 1].carnivores !== statistics.carnivoreCount) {
+      populationHistory[populationHistory.length - 1].carnivores !== statistics.carnivoreCount ||
+      populationHistory[populationHistory.length - 1].plants !== statistics.plantsCount) {
     
     populationHistory.push({
       herbivores: statistics.herbivoreCount,
-      carnivores: statistics.carnivoreCount
+      carnivores: statistics.carnivoreCount,
+      plants: statistics.plantsCount
     });
     
     // Limit history length
@@ -142,32 +156,62 @@ function drawPopulationChart(): void {
   // Find max population for scaling
   let maxPopulation = 1;
   for (const point of populationHistory) {
-    maxPopulation = Math.max(maxPopulation, point.herbivores, point.carnivores);
+    maxPopulation = Math.max(maxPopulation, point.herbivores, point.carnivores, point.plants);
   }
   
   // Calculate points
   const herbivorePoints: string[] = [];
   const carnivorePoints: string[] = [];
+  const plantPoints: string[] = [];
   
   populationHistory.forEach((point, index) => {
-    const x = (index / (populationHistory.length - 1)) * width;
+    const x = (index / Math.max(1, populationHistory.length - 1)) * width;
     const herbivoreY = height - (point.herbivores / maxPopulation) * height;
     const carnivoreY = height - (point.carnivores / maxPopulation) * height;
+    const plantY = height - (point.plants / maxPopulation) * height;
     
     herbivorePoints.push(`${x},${herbivoreY}`);
     carnivorePoints.push(`${x},${carnivoreY}`);
+    plantPoints.push(`${x},${plantY}`);
   });
   
-  // Create polylines
-  if (herbivorePoints.length > 1) {
-    const herbivorePolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    herbivorePolyline.setAttribute('points', herbivorePoints.join(' '));
-    herbivorePolyline.setAttribute('fill', 'none');
-    herbivorePolyline.setAttribute('stroke', '#4CAF50');
-    herbivorePolyline.setAttribute('stroke-width', '2');
-    svg.appendChild(herbivorePolyline);
+  // Add grid lines for better readability
+  for (let i = 0; i <= 4; i++) {
+    const y = height * (i / 4);
+    const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    gridLine.setAttribute('x1', '0');
+    gridLine.setAttribute('y1', y.toString());
+    gridLine.setAttribute('x2', width.toString());
+    gridLine.setAttribute('y2', y.toString());
+    gridLine.setAttribute('stroke', 'rgba(255, 255, 255, 0.1)');
+    gridLine.setAttribute('stroke-dasharray', '3,3');
+    svg.appendChild(gridLine);
+    
+    // Add label if not the top line
+    if (i < 4) {
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', '5');
+      label.setAttribute('y', (y - 5).toString());
+      label.setAttribute('fill', 'rgba(255,255,255,0.5)');
+      label.setAttribute('font-size', '8px');
+      label.textContent = Math.floor(maxPopulation * (1 - i/4)).toString();
+      svg.appendChild(label);
+    }
   }
   
+  // Create plant polyline (drawn first so it's in background)
+  if (plantPoints.length > 1) {
+    const plantPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    plantPolyline.setAttribute('points', plantPoints.join(' '));
+    plantPolyline.setAttribute('fill', 'none');
+    plantPolyline.setAttribute('stroke', '#32CD32');
+    plantPolyline.setAttribute('stroke-width', '1');
+    plantPolyline.setAttribute('stroke-dasharray', '2,2');
+    plantPolyline.setAttribute('stroke-opacity', '0.6');
+    svg.appendChild(plantPolyline);
+  }
+  
+  // Create carnivore polyline
   if (carnivorePoints.length > 1) {
     const carnivorePolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
     carnivorePolyline.setAttribute('points', carnivorePoints.join(' '));
@@ -175,7 +219,92 @@ function drawPopulationChart(): void {
     carnivorePolyline.setAttribute('stroke', '#f44336');
     carnivorePolyline.setAttribute('stroke-width', '2');
     svg.appendChild(carnivorePolyline);
+    
+    // Add dots for each data point
+    carnivorePoints.forEach((point, index) => {
+      const [x, y] = point.split(',').map(Number);
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', x.toString());
+      dot.setAttribute('cy', y.toString());
+      dot.setAttribute('r', '2');
+      dot.setAttribute('fill', '#f44336');
+      svg.appendChild(dot);
+    });
   }
+  
+  // Create herbivore polyline
+  if (herbivorePoints.length > 1) {
+    const herbivorePolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    herbivorePolyline.setAttribute('points', herbivorePoints.join(' '));
+    herbivorePolyline.setAttribute('fill', 'none');
+    herbivorePolyline.setAttribute('stroke', '#4CAF50');
+    herbivorePolyline.setAttribute('stroke-width', '2');
+    svg.appendChild(herbivorePolyline);
+    
+    // Add dots for each data point
+    herbivorePoints.forEach((point, index) => {
+      const [x, y] = point.split(',').map(Number);
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', x.toString());
+      dot.setAttribute('cy', y.toString());
+      dot.setAttribute('r', '2');
+      dot.setAttribute('fill', '#4CAF50');
+      svg.appendChild(dot);
+    });
+  }
+  
+  // Add chart legend
+  const legendY = height - 15;
+  
+  // Herbivore legend
+  const legendHerbDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  legendHerbDot.setAttribute('cx', '10');
+  legendHerbDot.setAttribute('cy', legendY.toString());
+  legendHerbDot.setAttribute('r', '3');
+  legendHerbDot.setAttribute('fill', '#4CAF50');
+  svg.appendChild(legendHerbDot);
+  
+  const legendHerbText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  legendHerbText.setAttribute('x', '15');
+  legendHerbText.setAttribute('y', (legendY + 3).toString());
+  legendHerbText.setAttribute('fill', '#FFFFFF');
+  legendHerbText.setAttribute('font-size', '8px');
+  legendHerbText.textContent = 'Herb';
+  svg.appendChild(legendHerbText);
+  
+  // Carnivore legend
+  const legendCarnDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  legendCarnDot.setAttribute('cx', '45');
+  legendCarnDot.setAttribute('cy', legendY.toString());
+  legendCarnDot.setAttribute('r', '3');
+  legendCarnDot.setAttribute('fill', '#f44336');
+  svg.appendChild(legendCarnDot);
+  
+  const legendCarnText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  legendCarnText.setAttribute('x', '50');
+  legendCarnText.setAttribute('y', (legendY + 3).toString());
+  legendCarnText.setAttribute('fill', '#FFFFFF');
+  legendCarnText.setAttribute('font-size', '8px');
+  legendCarnText.textContent = 'Carn';
+  svg.appendChild(legendCarnText);
+  
+  // Plants legend
+  const legendPlantLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  legendPlantLine.setAttribute('x1', '75');
+  legendPlantLine.setAttribute('y1', legendY.toString());
+  legendPlantLine.setAttribute('x2', '85');
+  legendPlantLine.setAttribute('y2', legendY.toString());
+  legendPlantLine.setAttribute('stroke', '#32CD32');
+  legendPlantLine.setAttribute('stroke-dasharray', '2,2');
+  svg.appendChild(legendPlantLine);
+  
+  const legendPlantText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  legendPlantText.setAttribute('x', '90');
+  legendPlantText.setAttribute('y', (legendY + 3).toString());
+  legendPlantText.setAttribute('fill', '#FFFFFF');
+  legendPlantText.setAttribute('font-size', '8px');
+  legendPlantText.textContent = 'Plants';
+  svg.appendChild(legendPlantText);
   
   chartElement.appendChild(svg);
 }
@@ -288,6 +417,13 @@ function updateSelectedAnimalUI(): void {
       `${(selectedAnimal.traits.perception / maxTraitValue) * 100}%`;
     (document.getElementById('entity-metabolism-bar') as HTMLElement).style.width = 
       `${(selectedAnimal.traits.metabolism / 1) * 100}%`; // Metabolism is usually 0-1
+      
+    // Update follow button
+    const followButton = document.getElementById('follow-animal');
+    if (followButton) {
+      const isFollowing = renderer.isFollowingAnimal(selectedAnimal);
+      followButton.textContent = isFollowing ? 'Unfollow' : 'Follow';
+    }
   } else {
     // Hide the panel
     detailPanel.style.display = 'none';
@@ -340,6 +476,18 @@ function setupControls(): void {
       // Clear population history
       populationHistory.length = 0;
       drawPopulationChart();
+      
+      // Stop following any animal
+      renderer.stopFollowingAnimal();
+    });
+  }
+  
+  // Recenter view button
+  const recenterBtn = document.getElementById('recenter-btn');
+  if (recenterBtn) {
+    recenterBtn.addEventListener('click', () => {
+      // Reset the view to center
+      renderer.setOptions({ zoomLevel: renderer.getZoomLevel() }); // This will trigger a recenter
     });
   }
   
@@ -390,13 +538,46 @@ function setupControls(): void {
     });
   }
   
+  // Legend toggle
+  const legendToggle = document.getElementById('show-legend') as HTMLInputElement;
+  const legend = document.getElementById('legend');
+  if (legendToggle && legend) {
+    legendToggle.addEventListener('change', () => {
+      legend.style.display = legendToggle.checked ? 'block' : 'none';
+    });
+  }
+  
+  // Minimap toggle
+  const minimapToggle = document.getElementById('show-minimap') as HTMLInputElement;
+  if (minimapToggle) {
+    minimapToggle.addEventListener('change', () => {
+      renderer.setOptions({ showMinimap: minimapToggle.checked });
+    });
+  }
+  
   // Close button for animal details
-  const closeDetailsBtn = document.getElementById('close-entity-details');
-  if (closeDetailsBtn) {
-    closeDetailsBtn.addEventListener('click', () => {
+  const closeDetailsBtns = document.querySelectorAll('#close-entity-details, #close-entity-details-btn');
+  closeDetailsBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
       selectedAnimal = null;
       updateSelectedAnimalUI();
       renderer.selectAnimal(null);
+    });
+  });
+  
+  // Follow animal button
+  const followAnimalBtn = document.getElementById('follow-animal');
+  if (followAnimalBtn) {
+    followAnimalBtn.addEventListener('click', () => {
+      if (!selectedAnimal) return;
+      
+      if (renderer.isFollowingAnimal(selectedAnimal)) {
+        renderer.stopFollowingAnimal();
+        followAnimalBtn.textContent = 'Follow';
+      } else {
+        renderer.followAnimal(selectedAnimal);
+        followAnimalBtn.textContent = 'Unfollow';
+      }
     });
   }
   
@@ -425,6 +606,23 @@ function setupControls(): void {
     carnivoresSlider.addEventListener('input', () => {
       carnivoresValueEl.textContent = carnivoresSlider.value;
     });
+  }
+  
+  // Help button
+  const helpBtn = document.getElementById('help-btn');
+  const helpPanel = document.getElementById('help-panel');
+  if (helpBtn && helpPanel) {
+    helpBtn.addEventListener('click', () => {
+      helpPanel.style.display = helpPanel.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    // Close help panel button
+    const closeHelp = document.getElementById('close-help');
+    if (closeHelp) {
+      closeHelp.addEventListener('click', () => {
+        helpPanel.style.display = 'none';
+      });
+    }
   }
 }
 
