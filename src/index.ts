@@ -342,16 +342,30 @@ function calculateAverageTraits(animals: Animal[]): void {
  */
 function updateStats(statistics: any): void {
   // Update main stats
-  document.getElementById('time')?.textContent = Math.floor(statistics.simulationTime).toString();
-  document.getElementById('animals')?.textContent = statistics.totalAnimals.toString();
-  document.getElementById('plants')?.textContent = statistics.plantsCount?.toString() || '0';
-  document.getElementById('generation')?.textContent = statistics.averageGeneration.toFixed(1);
-  document.getElementById('max-generation')?.textContent = statistics.highestGeneration.toString();
-  document.getElementById('weather')?.textContent = Weather[simulation.getState().environment.weather];
+  const timeElement = document.getElementById('time');
+  if (timeElement) timeElement.textContent = Math.floor(statistics.simulationTime).toString();
+  
+  const animalsElement = document.getElementById('animals');
+  if (animalsElement) animalsElement.textContent = statistics.totalAnimals.toString();
+  
+  const plantsElement = document.getElementById('plants');
+  if (plantsElement) plantsElement.textContent = statistics.plantsCount?.toString() || '0';
+  
+  const generationElement = document.getElementById('generation');
+  if (generationElement) generationElement.textContent = statistics.averageGeneration.toFixed(1);
+  
+  const maxGenElement = document.getElementById('max-generation');
+  if (maxGenElement) maxGenElement.textContent = statistics.highestGeneration.toString();
+  
+  const weatherElement = document.getElementById('weather');
+  if (weatherElement) weatherElement.textContent = Weather[simulation.getState().environment.weather];
   
   // Update species stats
-  document.getElementById('herbivore-count')?.textContent = statistics.herbivoreCount.toString();
-  document.getElementById('carnivore-count')?.textContent = statistics.carnivoreCount.toString();
+  const herbCountElement = document.getElementById('herbivore-count');
+  if (herbCountElement) herbCountElement.textContent = statistics.herbivoreCount.toString();
+  
+  const carnCountElement = document.getElementById('carnivore-count');
+  if (carnCountElement) carnCountElement.textContent = statistics.carnivoreCount.toString();
   
   // Update population bars
   const totalAnimals = statistics.totalAnimals > 0 ? statistics.totalAnimals : 1;
@@ -367,16 +381,28 @@ function updateStats(statistics: any): void {
   }
   
   // Update average traits
-  document.getElementById('herbivore-speed')?.textContent = averageHerbivoreTraits.speed.toString();
-  document.getElementById('herbivore-perception')?.textContent = averageHerbivoreTraits.perception.toString();
-  document.getElementById('carnivore-speed')?.textContent = averageCarnivoreTraits.speed.toString();
-  document.getElementById('carnivore-strength')?.textContent = averageCarnivoreTraits.strength.toString();
+  const herbSpeedElement = document.getElementById('herbivore-speed');
+  if (herbSpeedElement) herbSpeedElement.textContent = averageHerbivoreTraits.speed.toString();
+  
+  const herbPerceptionElement = document.getElementById('herbivore-perception');
+  if (herbPerceptionElement) herbPerceptionElement.textContent = averageHerbivoreTraits.perception.toString();
+  
+  const carnSpeedElement = document.getElementById('carnivore-speed');
+  if (carnSpeedElement) carnSpeedElement.textContent = averageCarnivoreTraits.speed.toString();
+  
+  const carnStrengthElement = document.getElementById('carnivore-strength');
+  if (carnStrengthElement) carnStrengthElement.textContent = averageCarnivoreTraits.strength.toString();
   
   // Update environment info
-  document.getElementById('environment-size')?.textContent = 
-    `${simulation.getState().environment.width}×${simulation.getState().environment.height}`;
-  document.getElementById('resource-count')?.textContent = 
-    simulation.getState().environment.getResources().length.toString();
+  const envSizeElement = document.getElementById('environment-size');
+  if (envSizeElement) {
+    envSizeElement.textContent = `${simulation.getState().environment.width}×${simulation.getState().environment.height}`;
+  }
+  
+  const resourceCountElement = document.getElementById('resource-count');
+  if (resourceCountElement) {
+    resourceCountElement.textContent = simulation.getState().environment.getResources().length.toString();
+  }
 }
 
 /**
